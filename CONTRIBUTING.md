@@ -7,7 +7,7 @@ The language applied in this repository is British English.
 
 ## Contributions
 
-Contributions to `audiopus_sys` should be first discussed up via an issue and then
+Contributions to `libopus_sys` should be first discussed up via an issue and then
 implemented via pull request.
 Issues display development-plans or required brainstorming, feel free to ask,
 suggest, and discuss!

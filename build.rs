@@ -1,5 +1,3 @@
-#![deny(rust_2018_idioms)]
-
 #[cfg(feature = "generate_binding")]
 use std::path::PathBuf;
 use std::{env, fmt::Display, path::Path};
