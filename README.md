@@ -1,8 +1,8 @@
 # `libopus_sys`
 
-`libopus_sys` is an FFI-Rust-binding to [`Opus`] version 1.5.
+`libopus_sys` is an FFI-Rust-binding to `Opus` version 1.5.
 
-Orginally, this sys-crate was made to empower the [`serenity`]-crate to build audio features on Windows, Linux, and Mac. However, it's not limited to that.
+Orginally, this sys-crate was made to empower the `serenity`-crate to build audio features on Windows, Linux, and Mac. However, it's not limited to that.
 
 Everyone is welcome to contribute,
 check out the [`CONTRIBUTING.md`](CONTRIBUTING.md) for further guidance.
@@ -46,7 +46,7 @@ probing for Opus via `pkg-config`.
 If you have Opus pre-installed, you can set `LIBOPUS_LIB_DIR` or
 `OPUS_LIB_DIR` to the directory containing Opus.
 
-Be aware that using an Opus other than version 1.3 may not work.
+Be aware that using an Opus other than version 1.5 may not work.
 
 # Generating The Binding
 If you want to generate the binding yourself, you can use the
