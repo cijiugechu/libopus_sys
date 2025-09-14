@@ -60,6 +60,25 @@ fn link_opus(is_static: bool, opus_build_dir: impl Display) {
     println!("cargo:rustc-link-search=native={}/lib", opus_build_dir);
 }
 
+#[cfg(target_os = "macos")]
+fn add_homebrew_opus_search_path() {
+    use std::process::Command;
+
+    if let Ok(output) = Command::new("brew").args(["--prefix", "opus"]).output() {
+        if output.status.success() {
+            let prefix = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !prefix.is_empty() {
+                let lib_dir = format!("{}/lib", prefix);
+                println!("cargo:info=Adding Homebrew Opus search path: {}", lib_dir);
+                println!("cargo:rustc-link-search=native={}", lib_dir);
+            }
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn add_homebrew_opus_search_path() {}
+
 #[cfg(any(unix, target_env = "gnu"))]
 fn find_via_pkg_config(is_static: bool) -> bool {
     pkg_config::Config::new()
@@ -123,6 +142,8 @@ fn is_static_build() -> bool {
 fn main() {
     #[cfg(feature = "generate_binding")]
     generate_binding();
+
+    add_homebrew_opus_search_path();
 
     let is_static = is_static_build();
 

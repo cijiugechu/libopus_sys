@@ -1,6 +1,6 @@
 [package]
 name = "libopus_sys"
-version = "0.3.0"
+version = "0.3.1"
 license = "MIT"
 repository = "https://github.com/cijiugechu/libopus_sys.git"
 authors = ["nemurubaka <cijiugechu@gmail.com>"]
