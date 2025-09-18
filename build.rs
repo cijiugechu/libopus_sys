@@ -37,15 +37,73 @@ fn generate_binding() {
 fn build_opus(is_static: bool) {
     let opus_path = Path::new("opus");
 
-    println!(
-        "cargo:info=Opus source path used: {:?}.",
-        opus_path
-            .canonicalize()
-            .expect("Could not canonicalise to absolute path")
-    );
+    if !opus_path.exists() {
+        panic!(
+            "'opus/' source directory not found. To build without a system lib, enable the 'bundled' feature or set OPUS_LIB_DIR/LIBOPUS_LIB_DIR.\n\
+             - Enable feature: cargo build --features bundled\n\
+             - Or install libopus and set OPUS_LIB_DIR/LIBOPUS_LIB_DIR to its prefix (containing 'lib')."
+        );
+    }
 
+    let display_path = opus_path
+        .canonicalize()
+        .ok()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| opus_path.display().to_string());
+
+    println!("cargo:info=Opus source path used: {}.", display_path);
     println!("cargo:info=Building Opus via CMake.");
-    let opus_build_dir = cmake::build(opus_path);
+
+    let mut cfg = cmake::Config::new(opus_path);
+
+    // Prefer Release artifacts for FFI libs regardless of Rust profile
+    cfg.profile("Release");
+
+    if is_static {
+        cfg.define("BUILD_SHARED_LIBS", "OFF")
+            .define("OPUS_BUILD_SHARED_LIBRARY", "OFF")
+            .define("OPUS_BUILD_STATIC_LIBRARY", "ON");
+    } else {
+        cfg.define("BUILD_SHARED_LIBS", "ON")
+            .define("OPUS_BUILD_SHARED_LIBRARY", "ON")
+            .define("OPUS_BUILD_STATIC_LIBRARY", "OFF");
+    }
+
+    // Inject PACKAGE_VERSION so opus reports a proper version string.
+    // Prefer env override, then parse opus/package_version if present.
+    if let Ok(explicit_version) = env::var("OPUS_PACKAGE_VERSION") {
+        if !explicit_version.trim().is_empty() {
+            cfg.define("OPUS_PACKAGE_VERSION", &explicit_version);
+            cfg.define("PACKAGE_VERSION", &explicit_version);
+        }
+    } else if let Ok(contents) = std::fs::read_to_string(opus_path.join("package_version"))
+        .or_else(|_| std::fs::read_to_string(opus_path.join("cmake").join("package_version")))
+    {
+        if let Some(v) = contents.lines().find_map(|l| {
+            let l = l.trim();
+            if l.starts_with("PACKAGE_VERSION=") {
+                Some(
+                    l.trim_start_matches("PACKAGE_VERSION=")
+                        .trim_matches('"')
+                        .to_string(),
+                )
+            } else {
+                None
+            }
+        }) {
+            if !v.is_empty() {
+                cfg.define("OPUS_PACKAGE_VERSION", &v);
+                cfg.define("PACKAGE_VERSION", &v);
+            }
+        }
+    }
+
+    // Best-effort disables; ignored by CMake if unsupported.
+    cfg.define("OPUS_BUILD_TESTING", "OFF")
+        .define("OPUS_ENABLE_DOC", "OFF")
+        .define("OPUS_INSTALL_PKG_CONFIG_MODULE", "OFF");
+
+    let opus_build_dir = cfg.build();
     link_opus(is_static, opus_build_dir.display())
 }
 
@@ -58,6 +116,11 @@ fn link_opus(is_static: bool, opus_build_dir: impl Display) {
     );
     println!("cargo:rustc-link-lib={}=opus", is_static_text);
     println!("cargo:rustc-link-search=native={}/lib", opus_build_dir);
+
+    // On Unix-like systems, static libopus may require libm
+    if is_static && (cfg!(unix) || cfg!(target_env = "gnu")) {
+        println!("cargo:rustc-link-lib=m");
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -139,13 +202,33 @@ fn is_static_build() -> bool {
     }
 }
 
+fn bundled_enabled() -> bool {
+    cfg!(feature = "bundled")
+        || env::var("LIBOPUS_BUNDLED").is_ok()
+        || env::var("OPUS_BUNDLED").is_ok()
+}
+
 fn main() {
+    // Rebuild if vendored sources or relevant env vars change
+    println!("cargo:rerun-if-changed=opus");
+    println!("cargo:rerun-if-env-changed=OPUS_LIB_DIR");
+    println!("cargo:rerun-if-env-changed=LIBOPUS_LIB_DIR");
+    println!("cargo:rerun-if-env-changed=OPUS_BUNDLED");
+    println!("cargo:rerun-if-env-changed=LIBOPUS_BUNDLED");
+    println!("cargo:rerun-if-env-changed=OPUS_STATIC");
+    println!("cargo:rerun-if-env-changed=LIBOPUS_STATIC");
     #[cfg(feature = "generate_binding")]
     generate_binding();
 
     add_homebrew_opus_search_path();
 
     let is_static = is_static_build();
+
+    // If explicitly requested, always build the vendored source
+    if bundled_enabled() {
+        build_opus(is_static);
+        return;
+    }
 
     #[cfg(any(unix, target_env = "gnu"))]
     {
@@ -162,7 +245,16 @@ fn main() {
 
     if let Some(installed_opus) = find_installed_opus() {
         link_opus(is_static, installed_opus);
-    } else {
+    } else if Path::new("opus").exists() {
+        // Building from a repository checkout that contains the vendored sources
         build_opus(is_static);
+    } else {
+        panic!(
+            "Could not locate a system libopus and no vendored 'opus/' was found.\n\
+             Options to resolve:\n\
+             1) Enable the 'bundled' feature to build the vendored lib (cargo build --features bundled)\n\
+             2) Install libopus and set OPUS_LIB_DIR/LIBOPUS_LIB_DIR to its prefix (containing 'lib')\n\
+             3) On Unix (gnu), ensure pkg-config can find 'opus'"
+        );
     }
 }

@@ -1,0 +1,16 @@
+[package]
+name = "libopus_sys_bundled"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+libopus_sys = { path = "..", default-features = false }
+
+[features]
+default = []
+bundled = ["libopus_sys/bundled"]
+dynamic = ["libopus_sys/dynamic"]
+static = ["libopus_sys/static"]
+
+

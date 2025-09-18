@@ -11,6 +11,24 @@ description = "FFI-Binding to Opus, dynamically or statically linked for Windows
 readme = "README.md"
 documentation = "https://docs.rs/libopus_sys"
 edition = "2021"
+include = [
+    "build.rs",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE",
+    "LICENSE-old",
+    "CHANGELOG.md",
+    "src/**",
+    "examples/**",
+    "opus/**",
+]
+
+[workspace]
+members = [
+    ".",
+    "bundled",
+]
+resolver = "2"
 
 [dependencies]
 
@@ -27,4 +45,5 @@ optional = true
 default = []
 dynamic = []
 static = []
+bundled = []
 generate_binding = ["bindgen"]

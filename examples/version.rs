@@ -15,5 +15,3 @@ fn main() {
         println!("OPUS_OK strerror: {}", ok);
     }
 }
-
-
