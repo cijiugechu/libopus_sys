@@ -58,6 +58,9 @@ fn build_opus(is_static: bool) {
 
     // Prefer Release artifacts for FFI libs regardless of Rust profile
     cfg.profile("Release");
+    // Force CMake to use 'lib' instead of 'lib64' on x86_64 Linux
+    cfg.define("CMAKE_INSTALL_LIBDIR", "lib");
+
 
     if is_static {
         cfg.define("BUILD_SHARED_LIBS", "OFF")
