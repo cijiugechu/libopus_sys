@@ -1,0 +1,53 @@
+name: android-runtime
+
+on: [push, pull_request]
+
+jobs:
+  smoke:
+    name: android runtime (x86_64)
+    runs-on: ubuntu-latest
+
+    env:
+      CARGO_TERM_COLOR: always
+      NDK_VERSION: 27.3.13750724
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-linux-android
+
+      - name: Cache Cargo build outputs
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android NDK
+        run: sdkmanager "ndk;${NDK_VERSION}"
+
+      - name: Export NDK environment
+        run: |
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --version 4.1.2 --locked
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Android smoke tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          script: cargo ndk-test -t x86_64 -P 29 --package libopus_sys_bundled --features bundled,static --release

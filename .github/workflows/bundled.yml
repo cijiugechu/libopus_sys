@@ -27,7 +27,9 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build and run bundled static smoke test
-        run: cargo run -p libopus_sys_bundled --features bundled,static
+      - name: Run bundled static smoke tests
+        run: cargo test -p libopus_sys_bundled --features bundled,static
 
+      - name: Build and run bundled static smoke binary
+        run: cargo run -p libopus_sys_bundled --features bundled,static
 

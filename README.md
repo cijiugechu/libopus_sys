@@ -25,8 +25,23 @@ This crate can either:
 
 - To **build Opus from source** (e.g. `--features bundled`): you need `cmake`.
 - To **link a system libopus via pkg-config**: you need `pkg-config` (Unix / GNU targets only).
+- To **cross-build for Android**: use the Android NDK and `cargo-ndk`.
 - This crate ships with pre-generated bindings. To **regenerate bindings** you need
   [`Clang`](https://rust-lang.github.io/rust-bindgen/requirements.html#clang) and `LIBCLANG_PATH`.
+
+## Platform Support
+
+| Platform | Supported path | Default linking |
+|----------|----------------|-----------------|
+| Windows | Native build or `bundled` | Static |
+| macOS | Native build or `bundled` | Static |
+| Linux `gnu` | Native build, `pkg-config`, or `bundled` | Dynamic |
+| Linux `musl` | Native build or `bundled` | Static |
+| Android | `cargo-ndk` with `bundled` | Static |
+
+Android support is target-aware inside `build.rs` and is validated via dedicated Android workflows.
+For Android, the build script consumes the NDK/toolchain environment exported by `cargo-ndk` rather
+than trying to guess compiler flags itself.
 
 ## Recommended: build from vendored sources (no system dependency)
 
@@ -44,9 +59,52 @@ You can also force this via environment variables:
 When `bundled` is enabled, the build script uses CMake to compile the vendored `opus/` sources and
 links the resulting library.
 
+## Android
+
+The supported Android path is `cargo-ndk` plus the vendored `opus/` sources.
+
+Install the Android Rust targets you intend to build:
+
+```bash
+rustup target add \
+  aarch64-linux-android \
+  armv7-linux-androideabi \
+  i686-linux-android \
+  x86_64-linux-android
+```
+
+Typical build commands:
+
+```bash
+cargo ndk -t arm64-v8a -P 21 build --features bundled,static --release
+cargo ndk -t x86_64 -P 21 test --package libopus_sys_bundled --features bundled,static --release --no-run
+```
+
+The repository's Android runtime smoke test is based on `cargo ndk-test`:
+
+```bash
+cargo ndk-test -t x86_64 -P 29 --package libopus_sys_bundled --features bundled,static --release
+```
+
+Android notes:
+
+- The build script validates that the Android ABI matches the Rust target triple.
+- The build script passes `ANDROID_ABI`, `CMAKE_ANDROID_ARCH_ABI`, `ANDROID_PLATFORM`,
+  `CMAKE_SYSTEM_VERSION`, `CMAKE_ANDROID_NDK`, and `CMAKE_TOOLCHAIN_FILE` to CMake when targeting
+  Android.
+- If you use `cargo-ndk`, those values are discovered from its environment automatically.
+- If you are not using `cargo-ndk`, you can override Android detection with:
+  `LIBOPUS_ANDROID_ABI`, `LIBOPUS_ANDROID_PLATFORM`, `LIBOPUS_ANDROID_NDK`, and
+  `CMAKE_TOOLCHAIN_FILE`.
+- The build script accepts target-specific environment-variable overrides in the same order as the
+  `cc` and `cmake` crates: `<VAR>_<target>`, `<VAR>_<target_with_underscores>`, `TARGET_<VAR>`,
+  then `<VAR>`.
+- Android builds skip `pkg-config` and do not use the Homebrew search-path logic.
+- `dynamic` builds are available, but this repository's validation focuses on `bundled,static`.
+
 ## Linking
 
-`libopus_sys` targets Opus 1.5 and supports Windows, Linux, and macOS.
+`libopus_sys` targets Opus 1.5 and supports Windows, Linux, macOS, and Android.
 
 ### Static vs dynamic
 

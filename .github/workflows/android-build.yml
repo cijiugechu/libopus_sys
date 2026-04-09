@@ -1,0 +1,56 @@
+name: android-build
+
+on: [push, pull_request]
+
+jobs:
+  smoke:
+    name: android build (${{ matrix.abi }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            target: aarch64-linux-android
+          - abi: armeabi-v7a
+            target: armv7-linux-androideabi
+          - abi: x86
+            target: i686-linux-android
+          - abi: x86_64
+            target: x86_64-linux-android
+
+    env:
+      CARGO_TERM_COLOR: always
+      NDK_VERSION: 27.3.13750724
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo build outputs
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android NDK
+        run: sdkmanager "ndk;${NDK_VERSION}"
+
+      - name: Export NDK environment
+        run: |
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --version 4.1.2 --locked
+
+      - name: Compile Android smoke tests
+        run: cargo ndk -t ${{ matrix.abi }} -P 21 test --package libopus_sys_bundled --features bundled,static --release --no-run
